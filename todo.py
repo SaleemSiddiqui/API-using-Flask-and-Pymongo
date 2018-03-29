@@ -143,25 +143,82 @@ def login():
     return make_reponse('Could not verify' , 401, {'WWW-Authntication' : 'Basic-realm="Login required"'})
 
 @app.route('/todo', methods=['GET'])
-def get_all_todo():
-    return ''
+@token_required
+def get_all_todo(current_user):
+
+    data = db.db.utodo.find({'user_id' : current_user['public_id']})
+    
+    if not data:
+        return jsonify({'message' : 'no Todo yet'})
+    
+    todo=[]
+
+    for dat in data:
+        todo.append({ 'id' : dat['id'], 'text' : dat['text'], 'complete' : dat['complete']})
+
+    return jsonify({'todo' : todo })
 
 @app.route('/todo/<todo_id>', methods=['GET'])
-def get_todo():
-    return ''
+@token_required
+def get_todo(current_user,todo_id):
+    data = db.db.utodo.find({'user_id' : current_user['public_id']})
+    print(todo_id)
+    if not data:
+        return jsonify({'message' : 'no Todo yet'})
+    
+    todo=[]
+    for dat in data:
+        print(dat['id'])
+        if int(todo_id) == dat['id']:
+            todo.append({ 'id' : dat['id'], 'text' : dat['text'], 'complete' : dat['complete']})
+
+    return jsonify({'todo' : todo})
 
 
 @app.route('/todo', methods=['POST'])
-def create_todo():
-    return ''
+@token_required
+def create_todo(current_user):
+    data = request.get_json()
+
+    td= Todo()
+    td.complete=False
+    td.text=data['text']
+    td.user_id=current_user['public_id']
+    
+    data=db.db.utodo.find({'user_id' : current_user['public_id']})
+
+    if not data:
+        td.id = 0
+    else : 
+        for dat in data:
+            td.id=dat['id']
+        td.id=td.id+1
+
+    db.db.utodo.insert({'user_id' : td.user_id, 'complete': td.complete , 'text' : td.text, 'id' : td.id })
+
+    return jsonify({'messgae' : 'todo has been added'})
 
 @app.route('/todo/<todo_id>', methods=['DELETE'])
-def delete_todo():
-    return ''
+@token_required
+def delete_todo(current_user, todo_id):
+
+    result = db.db.utodo.remove({"user_id": current_user['public_id'] , 'id' : int(todo_id)})
+    
+    if result['n'] > 0:
+        return jsonify({'message' : 'todo deleted'})
+    
+    return jsonify({'message' : 'no such todo found'})
 
 @app.route('/todo/<todo_id>', methods=['PUT'])
-def complete_todo():
-    return ''
+@token_required
+def complete_todo(current_user, todo_id):
+
+    result=db.db.utodo.update({ "user_id" : current_user['public_id'] , 'id' : int(todo_id) } , { '$set' : { "complete" : 'True' }} )
+    
+    if result['nModified'] > 0:  
+        return jsonify({'message' : 'todo updated'})
+
+    return jsonify({'message' : 'no todo found'})
     
 
 if __name__ == '__main__':
